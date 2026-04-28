@@ -132,6 +132,7 @@ class MainWindow(QMainWindow):
     def unlock_pid_tab(self):
         """Chamado pela aba de identificação após sucesso."""
         self.tabs.setTabEnabled(1, True)
+        self.tab_pid.refresh_model_fields()
         self.status_label.setText("✅ Identificação concluída. Aba de Controle PID liberada.")
 
     def set_status(self, message: str):
