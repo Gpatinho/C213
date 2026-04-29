@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
     QLabel, QGroupBox, QGridLayout, QLineEdit,
     QComboBox, QDoubleSpinBox, QSizePolicy,
     QMessageBox, QFileDialog, QRadioButton, QButtonGroup,
-    QFrame
+    QFrame, QScrollArea
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
