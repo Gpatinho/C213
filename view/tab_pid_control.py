@@ -411,11 +411,38 @@ class TabPIDControl(QWidget):
         """Sintoniza e plota um único método."""
         try:
             if self._rb_manual.isChecked():
+                Kp = self._pid_fields["Kp"].value()
+                Ti = self._pid_fields["Ti"].value()
+                Td = self._pid_fields["Td"].value()
+
+                # ── Verificação de estabilidade (modo Manual) ──────────
+                if Kp <= 0 or Ti <= 0:
+                    QMessageBox.warning(
+                        self, "Parâmetros Inválidos",
+                        "Kp e Ti devem ser maiores que zero."
+                    )
+                    return
+
+                is_stable, msg = self.controller.check_stability(Kp, Ti, Td)
+
+                if not is_stable:
+                    result = QMessageBox.warning(
+                        self, "⚠️  Sistema Instável",
+                        msg + "\n\nDeseja simular mesmo assim?",
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No,
+                    )
+                    if result == QMessageBox.No:
+                        self.main_window.set_status(f"⚠️ Simulação cancelada — {msg}")
+                        return
+                else:
+                    self.main_window.set_status(f"✅ {msg}")
+
                 pid = self.controller.tune_pid(
                     method=TuningMethod.MANUAL,
-                    Kp_manual=self._pid_fields["Kp"].value(),
-                    Ti_manual=self._pid_fields["Ti"].value(),
-                    Td_manual=self._pid_fields["Td"].value(),
+                    Kp_manual=Kp,
+                    Ti_manual=Ti,
+                    Td_manual=Td,
                 )
             else:
                 method = self._combo_method.currentData()
