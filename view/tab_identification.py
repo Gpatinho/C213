@@ -60,6 +60,26 @@ class TabIdentification(QWidget):
 
     def _build_dataset_group(self):
         grp    = QGroupBox("Dataset")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+        """)
         layout = QVBoxLayout(grp)
 
         self.lbl_file = QLabel("Nenhum arquivo carregado.")
@@ -75,6 +95,26 @@ class TabIdentification(QWidget):
 
     def _build_info_group(self):
         grp    = QGroupBox("Informações do Dataset")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+        """)
         g      = QGridLayout(grp)
         g.setSpacing(5)
 
@@ -83,7 +123,9 @@ class TabIdentification(QWidget):
                 ("y máx:", "y_max"), ("Degrau:", "amplitude_degrau")]
         self._info_fields = {}
         for i, (lbl, key) in enumerate(rows):
-            g.addWidget(QLabel(lbl), i, 0)
+            l = QLabel(lbl)
+            l.setStyleSheet("color:#cdd6f4; background:transparent;")
+            g.addWidget(l, i, 0)
             f = QLineEdit("—")
             f.setReadOnly(True)
             f.setStyleSheet("background:#11111b; color:#a6adc8;")
@@ -108,6 +150,26 @@ class TabIdentification(QWidget):
 
     def _build_smith_group(self):
         grp    = QGroupBox("Método de Smith")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+        """)
         layout = QVBoxLayout(grp)
 
         self.btn_identify = QPushButton("🔍  Identificar (Smith + Sundaresan)")
@@ -121,6 +183,26 @@ class TabIdentification(QWidget):
 
     def _build_sundar_group(self):
         grp    = QGroupBox("Método de Sundaresan")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+        """)
         layout = QVBoxLayout(grp)
 
         grid, self._sundar_fields = self._make_result_grid(["K", "tau", "theta", "eqm"])
@@ -129,6 +211,26 @@ class TabIdentification(QWidget):
 
     def _build_comparison_group(self):
         grp    = QGroupBox("Comparação e Seleção")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+        """)
         layout = QVBoxLayout(grp)
         layout.setSpacing(8)
 

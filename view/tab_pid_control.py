@@ -61,6 +61,44 @@ class TabPIDControl(QWidget):
 
     def _build_model_info(self):
         grp = QGroupBox("Modelo Identificado (FOPDT)")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QRadioButton {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QDoubleSpinBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QComboBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+        """)
         g   = QGridLayout(grp)
         g.setSpacing(6)
 
@@ -69,7 +107,9 @@ class TabPIDControl(QWidget):
             ("K (ganho):", "K"), ("τ (s):", "tau"),
             ("θ (s):", "theta"), ("EQM:", "eqm")
         ]):
-            g.addWidget(QLabel(lbl), i, 0)
+            l = QLabel(lbl)
+            l.setStyleSheet("color:#cdd6f4; background:transparent;")
+            g.addWidget(l, i, 0)
             f = QLineEdit("—")
             f.setReadOnly(True)
             f.setStyleSheet("background:#11111b; color:#a6e3a1; font-weight:bold;")
@@ -79,6 +119,44 @@ class TabPIDControl(QWidget):
 
     def _build_tuning_group(self):
         grp  = QGroupBox("Sintonia do Controlador PID")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QRadioButton {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QDoubleSpinBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QComboBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+        """)
         vlay = QVBoxLayout(grp)
         vlay.setSpacing(8)
 
@@ -98,7 +176,9 @@ class TabPIDControl(QWidget):
 
         # ComboBox de método
         method_row = QHBoxLayout()
-        method_row.addWidget(QLabel("Método:"))
+        lm = QLabel("Método:")
+        lm.setStyleSheet("color:#cdd6f4; background:transparent;")
+        method_row.addWidget(lm)
         self._combo_method = QComboBox()
         self._combo_method.addItem("Ziegler-Nichols", TuningMethod.ZIEGLER_NICHOLS)
         self._combo_method.addItem("ITAE",            TuningMethod.ITAE)
@@ -117,7 +197,9 @@ class TabPIDControl(QWidget):
         pid_grid.setSpacing(6)
         self._pid_fields = {}
         for i, (lbl, key) in enumerate([("Kp:", "Kp"), ("Ti (s):", "Ti"), ("Td (s):", "Td")]):
-            pid_grid.addWidget(QLabel(lbl), i, 0)
+            l = QLabel(lbl)
+            l.setStyleSheet("color:#cdd6f4; background:transparent;")
+            pid_grid.addWidget(l, i, 0)
             spin = QDoubleSpinBox()
             spin.setDecimals(4)
             spin.setRange(0.0, 9999.0)
@@ -139,17 +221,59 @@ class TabPIDControl(QWidget):
 
     def _build_setpoint_group(self):
         grp = QGroupBox("Controle — SetPoint")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QRadioButton {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QDoubleSpinBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QComboBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+        """)
         g   = QGridLayout(grp)
         g.setSpacing(6)
 
-        g.addWidget(QLabel("SetPoint:"), 0, 0)
+        l1 = QLabel("SetPoint:")
+        l1.setStyleSheet("color:#cdd6f4; background:transparent;")
+        g.addWidget(l1, 0, 0)
         self._spin_sp = QDoubleSpinBox()
         self._spin_sp.setDecimals(2)
         self._spin_sp.setRange(-9999.0, 9999.0)
         self._spin_sp.setValue(1.0)
         g.addWidget(self._spin_sp, 0, 1)
 
-        g.addWidget(QLabel("t final (s):"), 1, 0)
+        l2 = QLabel("t final (s):")
+        l2.setStyleSheet("color:#cdd6f4; background:transparent;")
+        g.addWidget(l2, 1, 0)
         self._spin_tend = QDoubleSpinBox()
         self._spin_tend.setDecimals(1)
         self._spin_tend.setRange(10.0, 9999.0)
@@ -163,6 +287,22 @@ class TabPIDControl(QWidget):
         para facilitar a comparação.
         """
         grp = QGroupBox("Métricas de Resposta")
+        grp.setStyleSheet("""
+            QGroupBox {
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }
+        """)
         g   = QGridLayout(grp)
         g.setSpacing(5)
 
@@ -170,12 +310,18 @@ class TabPIDControl(QWidget):
         g.addWidget(QLabel(""), 0, 0)
         lbl_zn = QLabel("ZN")
         lbl_zn.setAlignment(Qt.AlignCenter)
-        lbl_zn.setStyleSheet("color:#f38ba8; font-weight:bold;")
+        lbl_zn.setStyleSheet(
+            "color:#f38ba8; font-weight:bold; font-size:12px;"
+            "background:#11111b; border-radius:4px; padding:2px;"
+        )
         g.addWidget(lbl_zn, 0, 1)
 
         lbl_it = QLabel("ITAE")
         lbl_it.setAlignment(Qt.AlignCenter)
-        lbl_it.setStyleSheet("color:#a6e3a1; font-weight:bold;")
+        lbl_it.setStyleSheet(
+            "color:#a6e3a1; font-weight:bold; font-size:12px;"
+            "background:#11111b; border-radius:4px; padding:2px;"
+        )
         g.addWidget(lbl_it, 0, 2)
 
         rows = [
@@ -187,13 +333,16 @@ class TabPIDControl(QWidget):
         ]
         self._metric_fields = {"ZN": {}, "ITAE": {}}
         for i, (lbl, key) in enumerate(rows, start=1):
-            g.addWidget(QLabel(lbl), i, 0)
+            lbl_w = QLabel(lbl)
+            lbl_w.setStyleSheet("color:#cdd6f4; font-size:11px;")
+            g.addWidget(lbl_w, i, 0)
             for col, method in enumerate(["ZN", "ITAE"], start=1):
                 color = "#f38ba8" if method == "ZN" else "#a6e3a1"
                 f = QLineEdit("—")
                 f.setReadOnly(True)
                 f.setStyleSheet(
                     f"background:#11111b; color:{color}; font-weight:bold; font-size:11px;"
+                    "border: 1px solid #313244;"
                 )
                 g.addWidget(f, i, col)
                 self._metric_fields[method][key] = f
