@@ -5,10 +5,8 @@ Identificação do modelo FOPDT pelos Métodos de Smith e Sundaresan.
 Modelo FOPDT:
     G(s) = K * exp(-theta * s) / (tau * s + 1)
 """
-
 import numpy as np
 from dataclasses import dataclass
-
 
 @dataclass
 class FOPDTModel:
@@ -24,7 +22,6 @@ class FOPDTModel:
             f"[{self.method}] K={self.K:.4f}  τ={self.tau:.4f}s  "
             f"θ={self.theta:.4f}s  EQM={self.eqm:.6f}"
         )
-
 
 class _BaseIdentification:
     """Classe base com utilitários compartilhados entre os métodos."""
@@ -64,7 +61,6 @@ class _BaseIdentification:
             time, model.K, model.tau, model.theta, step_amplitude, y0
         )
 
-
 class SmithIdentification(_BaseIdentification):
     """
     Método de Smith para identificação de sistemas FOPDT.
@@ -98,7 +94,6 @@ class SmithIdentification(_BaseIdentification):
         eqm     = float(np.mean((output - y_model) ** 2))
 
         return FOPDTModel(K=K, tau=tau, theta=theta, eqm=eqm, method="Smith")
-
 
 class SundaresanIdentification(_BaseIdentification):
     """
