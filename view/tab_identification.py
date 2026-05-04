@@ -60,6 +60,26 @@ class TabIdentification(QWidget):
 
     def _build_dataset_group(self):
         grp    = QGroupBox("Dataset")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+        """)
         layout = QVBoxLayout(grp)
 
         self.lbl_file = QLabel("Nenhum arquivo carregado.")
@@ -75,6 +95,26 @@ class TabIdentification(QWidget):
 
     def _build_info_group(self):
         grp    = QGroupBox("Informações do Dataset")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+        """)
         g      = QGridLayout(grp)
         g.setSpacing(5)
 
@@ -83,7 +123,9 @@ class TabIdentification(QWidget):
                 ("y máx:", "y_max"), ("Degrau:", "amplitude_degrau")]
         self._info_fields = {}
         for i, (lbl, key) in enumerate(rows):
-            g.addWidget(QLabel(lbl), i, 0)
+            l = QLabel(lbl)
+            l.setStyleSheet("color:#cdd6f4; background:transparent;")
+            g.addWidget(l, i, 0)
             f = QLineEdit("—")
             f.setReadOnly(True)
             f.setStyleSheet("background:#11111b; color:#a6adc8;")
@@ -108,6 +150,26 @@ class TabIdentification(QWidget):
 
     def _build_smith_group(self):
         grp    = QGroupBox("Método de Smith")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+        """)
         layout = QVBoxLayout(grp)
 
         self.btn_identify = QPushButton("🔍  Identificar (Smith + Sundaresan)")
@@ -121,6 +183,26 @@ class TabIdentification(QWidget):
 
     def _build_sundar_group(self):
         grp    = QGroupBox("Método de Sundaresan")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+        """)
         layout = QVBoxLayout(grp)
 
         grid, self._sundar_fields = self._make_result_grid(["K", "tau", "theta", "eqm"])
@@ -129,6 +211,26 @@ class TabIdentification(QWidget):
 
     def _build_comparison_group(self):
         grp    = QGroupBox("Comparação e Seleção")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+        """)
         layout = QVBoxLayout(grp)
         layout.setSpacing(8)
 
@@ -169,14 +271,28 @@ class TabIdentification(QWidget):
         pg.setConfigOption("background", "#11111b")
         pg.setConfigOption("foreground", "#cdd6f4")
 
-        self.plot_widget = pg.PlotWidget(title="Resposta ao Degrau — Malha Aberta")
+        # Gráfico principal — Saída y(t)
+        self.plot_widget = pg.PlotWidget(title="Resposta ao Degrau — Saída y(t)")
         self.plot_widget.setLabel("left",   "Saída y(t)")
         self.plot_widget.setLabel("bottom", "Tempo (s)")
         self.plot_widget.addLegend()
         self.plot_widget.showGrid(x=True, y=True, alpha=0.2)
         self.plot_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        layout.addWidget(self.plot_widget)
+        # Gráfico secundário — Entrada u(t)
+        self.plot_input = pg.PlotWidget(title="Sinal de Entrada u(t)")
+        self.plot_input.setLabel("left",   "Entrada u(t)")
+        self.plot_input.setLabel("bottom", "Tempo (s)")
+        self.plot_input.addLegend()
+        self.plot_input.showGrid(x=True, y=True, alpha=0.2)
+        self.plot_input.setMaximumHeight(180)
+        self.plot_input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        # Sincroniza eixo X dos dois gráficos
+        self.plot_input.setXLink(self.plot_widget)
+
+        layout.addWidget(self.plot_widget, stretch=3)
+        layout.addWidget(self.plot_input,  stretch=1)
         return panel
 
     # ── Slots ─────────────────────────────────────────────────────────────
@@ -246,18 +362,52 @@ class TabIdentification(QWidget):
 
     def _plot_raw_data(self):
         self.plot_widget.clear()
+        self.plot_input.clear()
+
+        # Saída
         self.plot_widget.plot(
             self.controller.time_data,
             self.controller.output_data,
             pen=pg.mkPen("#89b4fa", width=2),
-            name="Dados Reais",
+            name="Saída y(t)",
         )
+
+        # Entrada
+        if self.controller.input_data is not None:
+            self.plot_input.plot(
+                self.controller.time_data,
+                self.controller.input_data,
+                pen=pg.mkPen("#fab387", width=2),
+                name="Entrada u(t)",
+            )
+        else:
+            # Se não houver entrada, exibe degrau inferido
+            t = self.controller.time_data
+            amp = self.controller.fopdt_model.K if self.controller.is_identified() else 1.0
+            step = self.controller._loader.get_step_amplitude() if hasattr(self.controller, "_loader") else 1.0
+            u = np.zeros_like(t)
+            u[t >= t[0]] = step
+            self.plot_input.plot(
+                t, u,
+                pen=pg.mkPen("#fab387", width=2, style=Qt.DashLine),
+                name="Entrada u(t) — inferida",
+            )
 
     def _plot_models(self, smith, sundar):
         """Plota dados reais + curva Smith + curva Sundaresan."""
         self.plot_widget.clear()
+        self.plot_input.clear()
 
-        # Dados reais
+        # Entrada u(t)
+        if self.controller.input_data is not None:
+            self.plot_input.plot(
+                self.controller.time_data,
+                self.controller.input_data,
+                pen=pg.mkPen("#fab387", width=2),
+                name="Entrada u(t)",
+            )
+
+        # Dados reais de saída
         self.plot_widget.plot(
             self.controller.time_data,
             self.controller.output_data,

@@ -1,261 +1,621 @@
 """
 view/tab_pid_control.py
-Aba de Controle PID completa com layout estável e gráfico zoom.
+Aba de Controle PID — sintonia, simulação, comparação e métricas de desempenho.
 """
+
 import numpy as np
-import os
-import pyqtgraph.exporters
-import PyQt5.QtWidgets as QtWidgets
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QGroupBox, QGridLayout, QLineEdit,
     QComboBox, QDoubleSpinBox, QSizePolicy,
-    QMessageBox, QFileDialog, QRadioButton, QButtonGroup
+    QMessageBox, QFileDialog, QRadioButton, QButtonGroup,
+    QFrame, QScrollArea
 )
 from PyQt5.QtCore import Qt
 import pyqtgraph as pg
+
 from model.pid_tuning import TuningMethod
 
+
 class TabPIDControl(QWidget):
+
     def __init__(self, controller, main_window):
         super().__init__()
         self.controller  = controller
         self.main_window = main_window
+        self._markers    = []
         self._build_ui()
+
+    # ══════════════════════════════════════════════════════════════
+    #  CONSTRUÇÃO DA INTERFACE
+    # ══════════════════════════════════════════════════════════════
 
     def _build_ui(self):
         layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(16)
         layout.addWidget(self._build_left_panel(), stretch=1)
         layout.addWidget(self._build_right_panel(), stretch=3)
 
     def _build_left_panel(self):
-        panel = QWidget()
-        vlay  = QVBoxLayout(panel)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { background: transparent; }")
 
-        grp_plant = QGroupBox("1. Planta Identificada")
-        grid_plant = QGridLayout(grp_plant)
+        inner = QWidget()
+        vlay  = QVBoxLayout(inner)
+        vlay.setSpacing(12)
+        vlay.setContentsMargins(4, 4, 8, 4)
+
+        vlay.addWidget(self._build_model_info())
+        vlay.addWidget(self._build_tuning_group())
+        vlay.addWidget(self._build_setpoint_group())
+        vlay.addWidget(self._build_metrics_group())
+        vlay.addWidget(self._build_action_buttons())
+        vlay.addStretch()
+
+        scroll.setWidget(inner)
+        return scroll
+
+    def _build_model_info(self):
+        grp = QGroupBox("Modelo Identificado (FOPDT)")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QRadioButton {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QDoubleSpinBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QComboBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+        """)
+        g   = QGridLayout(grp)
+        g.setSpacing(6)
+
         self._model_fields = {}
-        for i, key in enumerate(["K", "tau", "theta", "eqm"]):
-            grid_plant.addWidget(QLabel(f"{key}:"), i, 0)
+        for i, (lbl, key) in enumerate([
+            ("K (ganho):", "K"), ("τ (s):", "tau"),
+            ("θ (s):", "theta"), ("EQM:", "eqm")
+        ]):
+            l = QLabel(lbl)
+            l.setStyleSheet("color:#cdd6f4; background:transparent;")
+            g.addWidget(l, i, 0)
             f = QLineEdit("—")
             f.setReadOnly(True)
-            f.setStyleSheet("background-color:#11111b; color:#a6e3a1; font-weight:bold;")
-            grid_plant.addWidget(f, i, 1)
+            f.setStyleSheet("background:#11111b; color:#a6e3a1; font-weight:bold;")
+            g.addWidget(f, i, 1)
             self._model_fields[key] = f
-        vlay.addWidget(grp_plant)
+        return grp
 
-        grp_tune = QGroupBox("2. Sintonia PID")
-        vlay_tune = QVBoxLayout(grp_tune)
-        
-        self._rb_method = QRadioButton("Método Automático")
+    def _build_tuning_group(self):
+        grp  = QGroupBox("Sintonia do Controlador PID")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QRadioButton {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QDoubleSpinBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QComboBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+        """)
+        vlay = QVBoxLayout(grp)
+        vlay.setSpacing(8)
+
+        # Modo: Método ou Manual
+        mode_row = QHBoxLayout()
+        self._rb_method = QRadioButton("Método")
         self._rb_manual = QRadioButton("Manual")
         self._rb_method.setChecked(True)
         self._rb_method.toggled.connect(self._on_mode_changed)
-        
-        bg = QButtonGroup(self)
-        bg.addButton(self._rb_method)
-        bg.addButton(self._rb_manual)
-        
-        vlay_tune.addWidget(self._rb_method)
+        btn_group = QButtonGroup(self)
+        btn_group.addButton(self._rb_method)
+        btn_group.addButton(self._rb_manual)
+        mode_row.addWidget(self._rb_method)
+        mode_row.addWidget(self._rb_manual)
+        mode_row.addStretch()
+        vlay.addLayout(mode_row)
+
+        # ComboBox de método
+        method_row = QHBoxLayout()
+        lm = QLabel("Método:")
+        lm.setStyleSheet("color:#cdd6f4; background:transparent;")
+        method_row.addWidget(lm)
         self._combo_method = QComboBox()
-        from model.pid_tuning import PIDTuner
-        for method in PIDTuner().available_methods():
-            if method.name != "MANUAL": self._combo_method.addItem(method.value, method)
-        vlay_tune.addWidget(self._combo_method)
-        
-        self.lbl_lambda = QLabel("λ (Apenas IMC):")
-        self.spin_lambda = QDoubleSpinBox()
-        self.spin_lambda.setRange(0.01, 9999.0)
-        self.spin_lambda.setValue(20.0)
-        self.lbl_lambda.setVisible(False)
-        self.spin_lambda.setVisible(False)
-        self._combo_method.currentIndexChanged.connect(self._check_imc)
-        vlay_tune.addWidget(self.lbl_lambda)
-        vlay_tune.addWidget(self.spin_lambda)
+        self._combo_method.addItem("Ziegler-Nichols", TuningMethod.ZIEGLER_NICHOLS)
+        self._combo_method.addItem("ITAE",            TuningMethod.ITAE)
+        self._combo_method.currentIndexChanged.connect(self._on_method_changed)
+        method_row.addWidget(self._combo_method)
+        vlay.addLayout(method_row)
 
-        vlay_tune.addWidget(self._rb_manual)
-        
-        self._pid_fields = {}
+        # Separador
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setStyleSheet("color:#313244;")
+        vlay.addWidget(line)
+
+        # Campos Kp / Ti / Td
         pid_grid = QGridLayout()
-        for i, key in enumerate(["Kp", "Ti", "Td"]):
-            pid_grid.addWidget(QLabel(f"{key}:"), i, 0)
-            sp = QDoubleSpinBox()
-            sp.setDecimals(4)
-            sp.setRange(0.0, 99999.0)
-            pid_grid.addWidget(sp, i, 1)
-            self._pid_fields[key] = sp
-        vlay_tune.addLayout(pid_grid)
-        vlay.addWidget(grp_tune)
+        pid_grid.setSpacing(6)
+        self._pid_fields = {}
+        for i, (lbl, key) in enumerate([("Kp:", "Kp"), ("Ti (s):", "Ti"), ("Td (s):", "Td")]):
+            l = QLabel(lbl)
+            l.setStyleSheet("color:#cdd6f4; background:transparent;")
+            pid_grid.addWidget(l, i, 0)
+            spin = QDoubleSpinBox()
+            spin.setDecimals(4)
+            spin.setRange(0.0, 9999.0)
+            spin.setSingleStep(0.1)
+            spin.setValue(0.0)
+            pid_grid.addWidget(spin, i, 1)
+            self._pid_fields[key] = spin
 
-        grp_sp = QGroupBox("3. SetPoint")
-        grid_sp = QGridLayout(grp_sp)
-        self._spin_sp = QDoubleSpinBox()
-        self._spin_sp.setRange(-9999.0, 9999.0)
-        self._spin_sp.setValue(1.0)
-        grid_sp.addWidget(QLabel("SetPoint:"), 0, 0)
-        grid_sp.addWidget(self._spin_sp, 0, 1)
-        self._spin_tend = QDoubleSpinBox()
-        self._spin_tend.setRange(10.0, 9999.0)
-        self._spin_tend.setValue(300.0)
-        grid_sp.addWidget(QLabel("t final (s):"), 1, 0)
-        grid_sp.addWidget(self._spin_tend, 1, 1)
-        vlay.addWidget(grp_sp)
-
-        grp_metrics = QGroupBox("4. Métricas")
-        grid_metrics = QGridLayout(grp_metrics)
-        labels = [("tr (subida):", "tr"), ("ts (acomod.):", "ts"), ("Mp (overshoot):", "Mp"), ("ess (regime):", "ess")]
-        self._metric_fields = {}
-        for i, (lbl, key) in enumerate(labels):
-            grid_metrics.addWidget(QLabel(lbl), i, 0)
-            f = QLineEdit("—")
-            f.setReadOnly(True)
-            f.setStyleSheet("background-color:#11111b; color:#89dceb; font-weight:bold;")
-            grid_metrics.addWidget(f, i, 1)
-            self._metric_fields[key] = f
-        vlay.addWidget(grp_metrics)
+        self._btn_clear = QPushButton("✕ Limpar")
+        self._btn_clear.setStyleSheet(
+            "background-color:#313244; color:#cdd6f4; font-size:11px; padding:4px 10px;"
+        )
+        self._btn_clear.clicked.connect(self._on_clear_pid)
+        pid_grid.addWidget(self._btn_clear, 3, 1)
+        vlay.addLayout(pid_grid)
 
         self._set_manual_mode(False)
-        return panel
+        return grp
+
+    def _build_setpoint_group(self):
+        grp = QGroupBox("Controle — SetPoint")
+        grp.setStyleSheet("""
+            QGroupBox {{
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }}
+            QLabel {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QRadioButton {{
+                color: #cdd6f4;
+                background: transparent;
+            }}
+            QDoubleSpinBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QComboBox {{
+                background: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+        """)
+        g   = QGridLayout(grp)
+        g.setSpacing(6)
+
+        l1 = QLabel("SetPoint:")
+        l1.setStyleSheet("color:#cdd6f4; background:transparent;")
+        g.addWidget(l1, 0, 0)
+        self._spin_sp = QDoubleSpinBox()
+        self._spin_sp.setDecimals(2)
+        self._spin_sp.setRange(-9999.0, 9999.0)
+        self._spin_sp.setValue(1.0)
+        g.addWidget(self._spin_sp, 0, 1)
+
+        l2 = QLabel("t final (s):")
+        l2.setStyleSheet("color:#cdd6f4; background:transparent;")
+        g.addWidget(l2, 1, 0)
+        self._spin_tend = QDoubleSpinBox()
+        self._spin_tend.setDecimals(1)
+        self._spin_tend.setRange(10.0, 9999.0)
+        self._spin_tend.setValue(300.0)
+        g.addWidget(self._spin_tend, 1, 1)
+        return grp
+
+    def _build_metrics_group(self):
+        """
+        Painel de métricas com duas colunas: ZN e ITAE lado a lado
+        para facilitar a comparação.
+        """
+        grp = QGroupBox("Métricas de Resposta")
+        grp.setStyleSheet("""
+            QGroupBox {
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #89b4fa;
+                font-weight: bold;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 6px;
+            }
+        """)
+        g   = QGridLayout(grp)
+        g.setSpacing(5)
+
+        # Cabeçalhos
+        g.addWidget(QLabel(""), 0, 0)
+        lbl_zn = QLabel("ZN")
+        lbl_zn.setAlignment(Qt.AlignCenter)
+        lbl_zn.setStyleSheet(
+            "color:#f38ba8; font-weight:bold; font-size:12px;"
+            "background:#11111b; border-radius:4px; padding:2px;"
+        )
+        g.addWidget(lbl_zn, 0, 1)
+
+        lbl_it = QLabel("ITAE")
+        lbl_it.setAlignment(Qt.AlignCenter)
+        lbl_it.setStyleSheet(
+            "color:#a6e3a1; font-weight:bold; font-size:12px;"
+            "background:#11111b; border-radius:4px; padding:2px;"
+        )
+        g.addWidget(lbl_it, 0, 2)
+
+        rows = [
+            ("tr (s):",  "tr"),
+            ("ts (s):",  "ts"),
+            ("Mp (%):",  "Mp"),
+            ("ess:",     "ess"),
+            ("Pico:",    "peak"),
+        ]
+        self._metric_fields = {"ZN": {}, "ITAE": {}}
+        for i, (lbl, key) in enumerate(rows, start=1):
+            lbl_w = QLabel(lbl)
+            lbl_w.setStyleSheet("color:#cdd6f4; font-size:11px;")
+            g.addWidget(lbl_w, i, 0)
+            for col, method in enumerate(["ZN", "ITAE"], start=1):
+                color = "#f38ba8" if method == "ZN" else "#a6e3a1"
+                f = QLineEdit("—")
+                f.setReadOnly(True)
+                f.setStyleSheet(
+                    f"background:#11111b; color:{color}; font-weight:bold; font-size:11px;"
+                    "border: 1px solid #313244;"
+                )
+                g.addWidget(f, i, col)
+                self._metric_fields[method][key] = f
+
+        return grp
+
+    def _build_action_buttons(self):
+        w    = QWidget()
+        vlay = QVBoxLayout(w)
+        vlay.setSpacing(8)
+        vlay.setContentsMargins(0, 0, 0, 0)
+
+        # Sintonizar método individual
+        self._btn_tune = QPushButton("⚙️  Sintonizar")
+        self._btn_tune.clicked.connect(self._on_tune)
+
+        # Comparar ZN vs ITAE no mesmo gráfico
+        self._btn_compare = QPushButton("📊  Comparar ZN vs ITAE")
+        self._btn_compare.setStyleSheet(
+            "background-color:#cba6f7; color:#1e1e2e;"
+        )
+        self._btn_compare.clicked.connect(self._on_compare)
+
+        # Exportar
+        self._btn_export = QPushButton("💾  Exportar Gráfico")
+        self._btn_export.setEnabled(False)
+        self._btn_export.setStyleSheet("background-color:#313244; color:#cdd6f4;")
+        self._btn_export.clicked.connect(self._on_export)
+
+        vlay.addWidget(self._btn_tune)
+        vlay.addWidget(self._btn_compare)
+        vlay.addWidget(self._btn_export)
+        return w
 
     def _build_right_panel(self):
         panel = QWidget()
         vlay  = QVBoxLayout(panel)
 
         self._plot = pg.PlotWidget(title="Resposta ao Degrau — Malha Fechada")
+        self._plot.setLabel("left",   "Saída y(t)")
+        self._plot.setLabel("bottom", "Tempo (s)")
         self._plot.addLegend()
-        self._plot.showGrid(x=True, y=True, alpha=0.15) 
-        self._plot.getViewBox().setMouseMode(pg.ViewBox.RectMode)
-        
-        dica = QLabel("💡 Dica: Arraste com o botão esquerdo para Zoom | Botão Direito > View All para resetar")
-        dica.setStyleSheet("color: #a6adc8; font-size: 10px;")
-        vlay.addWidget(dica)
-        vlay.addWidget(self._plot, stretch=4)
+        self._plot.showGrid(x=True, y=True, alpha=0.2)
+        self._plot.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        botoes = QHBoxLayout()
-        self.btn_simular = QPushButton("▶ Simular Curva")
-        self.btn_simular.setStyleSheet("background-color:#00529b; color:white; font-weight:bold; padding: 8px;")
-        self.btn_simular.clicked.connect(self._on_simulate)
-        
-        self.btn_limpar = QPushButton("🧹 Limpar")
-        self.btn_limpar.setStyleSheet("background-color:#585b70; color:white; padding: 8px;")
-        self.btn_limpar.clicked.connect(self._on_limpar)
-
-        self.btn_exportar = QPushButton("💾 Salvar Grafico Local")
-        self.btn_exportar.setStyleSheet("background-color:#179299; color:white; padding: 8px;")
-        self.btn_exportar.clicked.connect(self._on_export)
-
-        self.btn_rep_std = QPushButton("📄 Relatório Teórico")
-        self.btn_rep_std.setStyleSheet("background-color:#2c3e50; color:white; padding: 8px;")
-        self.btn_rep_std.clicked.connect(lambda: self.controller.gerar_relatorio_final(usar_ia=False))
-
-        self.btn_rep_ia = QPushButton("✨ Relatório IA")
-        self.btn_rep_ia.setStyleSheet("background-color:#6c2b91; color:white; font-weight:bold; padding: 8px;")
-        self.btn_rep_ia.clicked.connect(lambda: self.controller.gerar_relatorio_final(usar_ia=True))
-
-        botoes.addWidget(self.btn_simular)
-        botoes.addWidget(self.btn_limpar)
-        botoes.addWidget(self.btn_exportar)
-        botoes.addWidget(self.btn_rep_std)
-        botoes.addWidget(self.btn_rep_ia)
-        vlay.addLayout(botoes)
+        vlay.addWidget(self._plot)
         return panel
 
-    def _check_imc(self):
-        method = self._combo_method.currentData()
-        self.spin_lambda.setVisible(method and method.name == "IMC" and self._rb_method.isChecked())
-        self.lbl_lambda.setVisible(method and method.name == "IMC" and self._rb_method.isChecked())
+    # ══════════════════════════════════════════════════════════════
+    #  SLOTS
+    # ══════════════════════════════════════════════════════════════
 
     def _on_mode_changed(self):
         self._set_manual_mode(self._rb_manual.isChecked())
 
-    def _set_manual_mode(self, manual: bool):
-        self._combo_method.setEnabled(not manual)
-        for sp in self._pid_fields.values(): 
-            sp.setReadOnly(not manual)
-            sp.setStyleSheet("" if manual else "background-color:#11111b; color:#a6e3a1;")
-        self._check_imc()
+    def _on_method_changed(self):
+        if self._rb_method.isChecked():
+            for f in self._pid_fields.values():
+                f.setValue(0.0)
 
-    def _on_simulate(self):
+    def _on_clear_pid(self):
+        for f in self._pid_fields.values():
+            f.setValue(0.0)
+
+    def _on_tune(self):
+        """Sintoniza e plota um único método."""
         try:
-            sp = self._spin_sp.value()
             if self._rb_manual.isChecked():
-                method = TuningMethod.MANUAL
-                kp = self._pid_fields["Kp"].value()
-                ti = self._pid_fields["Ti"].value()
-                td = self._pid_fields["Td"].value()
-                l_imc = 0.0
-                nome_curva = f"Manual (Kp={kp:.1f})"
+                Kp = self._pid_fields["Kp"].value()
+                Ti = self._pid_fields["Ti"].value()
+                Td = self._pid_fields["Td"].value()
+
+                # ── Verificação de estabilidade (modo Manual) ──────────
+                if Kp <= 0 or Ti <= 0:
+                    QMessageBox.warning(
+                        self, "Parâmetros Inválidos",
+                        "Kp e Ti devem ser maiores que zero."
+                    )
+                    return
+
+                is_stable, msg = self.controller.check_stability(Kp, Ti, Td)
+
+                if not is_stable:
+                    result = QMessageBox.warning(
+                        self, "⚠️  Sistema Instável",
+                        msg + "\n\nDeseja simular mesmo assim?",
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No,
+                    )
+                    if result == QMessageBox.No:
+                        self.main_window.set_status(f"⚠️ Simulação cancelada — {msg}")
+                        return
+                else:
+                    self.main_window.set_status(f"✅ {msg}")
+
+                pid = self.controller.tune_pid(
+                    method=TuningMethod.MANUAL,
+                    Kp_manual=Kp,
+                    Ti_manual=Ti,
+                    Td_manual=Td,
+                )
             else:
                 method = self._combo_method.currentData()
-                kp, ti, td = 1.0, 1.0, 0.0
-                l_imc = self.spin_lambda.value()
-                nome_curva = method.value if hasattr(method, 'value') else str(method)
-
-            pid = self.controller.tune_pid(method, kp, ti, td, l_imc)
-            
-            if not self._rb_manual.isChecked():
+                pid    = self.controller.tune_pid(method=method)
                 self._pid_fields["Kp"].setValue(pid.Kp)
                 self._pid_fields["Ti"].setValue(pid.Ti)
                 self._pid_fields["Td"].setValue(pid.Td)
 
-            t, y, metrics = self.controller.simulate_closed_loop(sp, self._spin_tend.value())
-            self.controller.simular_e_comparar(nome_curva, t, y, sp, pid, metrics)
-            self._atualizar_grafico()
-            
-            self._metric_fields["tr"].setText(f"{metrics.rise_time:.3f} s" if metrics.rise_time else "—")
-            self._metric_fields["ts"].setText(f"{metrics.settling_time:.3f} s" if metrics.settling_time else "—")
-            self._metric_fields["Mp"].setText(f"{metrics.overshoot:.2f} %" if metrics.overshoot else "—")
-            self._metric_fields["ess"].setText(f"{metrics.steady_state_error:.4f}")
+            sp    = self._spin_sp.value()
+            t_end = self._spin_tend.value()
+            time, output, metrics = self.controller.simulate_closed_loop(
+                setpoint=sp, t_end=t_end
+            )
+
+            self._plot.clear()
+            self._markers.clear()
+            self._add_setpoint_line(sp)
+            self._plot_curve(time, output, pid.method, metrics)
+
+            # Preenche métricas na coluna correta
+            col = "ZN" if pid.method == "Ziegler-Nichols" else (
+                  "ITAE" if pid.method == "ITAE" else None)
+            if col:
+                self._fill_metrics(col, metrics)
+
+            self._btn_export.setEnabled(True)
+            self._btn_export.setStyleSheet("")
+            self.main_window.set_status(
+                f"✅ [{pid.method}]  Kp={pid.Kp:.4f}  Ti={pid.Ti:.4f}  Td={pid.Td:.4f}"
+            )
+
         except Exception as e:
-            QMessageBox.warning(self, "Erro", str(e))
+            QMessageBox.critical(self, "Erro na Sintonia", str(e))
 
-    def _on_limpar(self):
-        self.controller.limpar_grafico(self._spin_sp.value())
-        self._atualizar_grafico()
+    def _on_compare(self):
+        """Plota ZN e ITAE no mesmo gráfico e preenche as duas colunas de métricas."""
+        try:
+            sp    = self._spin_sp.value()
+            t_end = self._spin_tend.value()
 
-    def _atualizar_grafico(self):
-        self._plot.clear()
-        sp = self._spin_sp.value()
-        
-        sp_line = pg.InfiniteLine(pos=sp, angle=0, pen=pg.mkPen("#fab387", width=1.5, style=Qt.DashLine))
-        self._plot.addItem(sp_line)
-        
-        cores = ['#a6e3a1', '#f38ba8', '#89b4fa', '#f9e2af', '#cba6f7', '#94e2d5']
-        
-        for i, (nome, dados) in enumerate(self.controller.historico_simulacoes.items()):
-            cor = cores[i % len(cores)]
-            t = dados['t']
-            y = dados['y']
-            met = dados['metrics']
+            self._plot.clear()
+            self._markers.clear()
+            self._add_setpoint_line(sp)
 
-            self._plot.plot(t, y, pen=pg.mkPen(cor, width=2), name=nome)
+            for method, col in [
+                (TuningMethod.ZIEGLER_NICHOLS, "ZN"),
+                (TuningMethod.ITAE,            "ITAE"),
+            ]:
+                pid = self.controller.tune_pid(method=method)
+                time, output, metrics = self.controller.simulate_closed_loop(
+                    setpoint=sp, t_end=t_end
+                )
+                self._plot_curve(time, output, pid.method, metrics)
+                self._fill_metrics(col, metrics)
 
-            if met.overshoot > 0.5 and met.peak_time is not None:
-                self._add_marker(met.peak_time, met.peak_value, f"Mp={met.overshoot:.1f}%", cor)
-            if met.settling_time is not None:
-                y_ts = float(np.interp(met.settling_time, t, y))
-                self._add_marker(met.settling_time, y_ts, f"ts={met.settling_time:.1f}s", cor)
+            self._plot.setTitle("Comparação ZN vs ITAE — Malha Fechada")
+            self._btn_export.setEnabled(True)
+            self._btn_export.setStyleSheet("")
+            self.main_window.set_status("📊 Comparação ZN vs ITAE gerada com sucesso!")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erro na Comparação", str(e))
+
+    def _on_export(self):
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Salvar Gráfico", "controle_pid.png", "PNG (*.png)"
+        )
+        if filepath:
+            exporter = pg.exporters.ImageExporter(self._plot.plotItem)
+            exporter.export(filepath)
+            self.main_window.set_status(f"Gráfico exportado: {filepath}")
+
+    # ══════════════════════════════════════════════════════════════
+    #  HELPERS
+    # ══════════════════════════════════════════════════════════════
+
+    def _set_manual_mode(self, manual: bool):
+        self._combo_method.setEnabled(not manual)
+        self._btn_clear.setVisible(manual)
+        for f in self._pid_fields.values():
+            f.setReadOnly(not manual)
+            f.setStyleSheet("" if manual else "background:#11111b; color:#a6e3a1;")
+
+    def _add_setpoint_line(self, sp):
+        line = pg.InfiniteLine(
+            pos=sp, angle=0,
+            pen=pg.mkPen("#fab387", width=1, style=Qt.DashLine),
+            label=f"SP={sp:.2f}",
+            labelOpts={"color": "#fab387", "position": 0.05},
+        )
+        self._plot.addItem(line)
+
+    def _plot_curve(self, time, output, method_name, metrics):
+        """Plota uma curva de resposta com seus marcadores."""
+        colors = {
+            "Ziegler-Nichols": "#f38ba8",
+            "ITAE":            "#a6e3a1",
+            "Manual":          "#89b4fa",
+        }
+        color = colors.get(method_name, "#cdd6f4")
+
+        self._plot.plot(
+            time, output,
+            pen=pg.mkPen(color, width=2),
+            name=method_name,
+        )
+
+        # Marcador de pico
+        if metrics.overshoot > 0.5 and metrics.peak_time is not None:
+            self._add_marker(
+                metrics.peak_time, metrics.peak_value,
+                f"Mp={metrics.overshoot:.1f}%", color,
+            )
+
+        # Marcador de tr (ponto de 90%)
+        if metrics.rise_time is not None:
+            t90 = self._find_crossing(time, output, 0.90 * self._spin_sp.value())
+            if t90 is not None:
+                self._add_marker(
+                    t90, 0.90 * self._spin_sp.value(),
+                    f"tr={metrics.rise_time:.1f}s", color,
+                )
+
+        # Marcador de ts
+        if metrics.settling_time is not None:
+            y_ts = float(np.interp(metrics.settling_time, time, output))
+            self._add_marker(
+                metrics.settling_time, y_ts,
+                f"ts={metrics.settling_time:.1f}s", color,
+            )
 
     def _add_marker(self, t, y, label, color):
-        scatter = pg.ScatterPlotItem(x=[t], y=[y], symbol="o", size=8, pen=pg.mkPen(color), brush=pg.mkBrush(color))
+        scatter = pg.ScatterPlotItem(
+            x=[t], y=[y], symbol="o", size=10,
+            pen=pg.mkPen(color, width=1.5),
+            brush=pg.mkBrush(color + "88"),
+        )
         text = pg.TextItem(label, color=color, anchor=(0, 1))
         text.setPos(t, y)
         self._plot.addItem(scatter)
         self._plot.addItem(text)
+        self._markers.extend([scatter, text])
 
-    def _on_export(self):
-        filepath, _ = QFileDialog.getSaveFileName(self, "Salvar Gráfico", "grafico_pid.png", "PNG (*.png)")
-        if filepath:
-            QtWidgets.QApplication.processEvents()
-            exporter = pg.exporters.ImageExporter(self._plot.plotItem)
-            exporter.export(filepath)
+    def _find_crossing(self, time, output, level):
+        idx = np.where(output >= level)[0]
+        if len(idx) == 0:
+            return None
+        i = int(idx[0])
+        if i > 0:
+            y0, y1 = float(output[i-1]), float(output[i])
+            t0, t1 = float(time[i-1]),   float(time[i])
+            if y1 != y0:
+                return t0 + (level - y0) * (t1 - t0) / (y1 - y0)
+        return float(time[i])
+
+    def _fill_metrics(self, col: str, metrics):
+        """Preenche a coluna ZN ou ITAE no painel de métricas."""
+        f = self._metric_fields[col]
+        f["tr"].setText(f"{metrics.rise_time:.2f} s"      if metrics.rise_time    is not None else "—")
+        f["ts"].setText(f"{metrics.settling_time:.2f} s"  if metrics.settling_time is not None else "—")
+        f["Mp"].setText(f"{metrics.overshoot:.2f} %"      if metrics.overshoot    is not None else "—")
+        f["ess"].setText(f"{metrics.steady_state_error:.4f}")
+        f["peak"].setText(f"{metrics.peak_value:.4f}")
 
     def refresh_model_fields(self):
         m = self.controller.fopdt_model
-        if not m: return
+        if m is None:
+            return
         self._model_fields["K"].setText(f"{m.K:.4f}")
         self._model_fields["tau"].setText(f"{m.tau:.4f}")
         self._model_fields["theta"].setText(f"{m.theta:.4f}")
         self._model_fields["eqm"].setText(f"{m.eqm:.6f}")
+
         if self.controller.output_data is not None:
-            self._spin_sp.setValue(round(float(self.controller.output_data[-1]), 2))
+            sp = float(self.controller.output_data[-1])
+            self._spin_sp.setValue(round(sp, 2))
