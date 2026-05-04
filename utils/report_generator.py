@@ -4,7 +4,7 @@ Geração de Laudo Técnico Profissional focado em Engenharia de Controle Cláss
 """
 import os
 from fpdf import FPDF
-from google import genai
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
