@@ -1,177 +1,87 @@
 """
 model/pid_tuning.py
-Métodos de sintonia PID para o Grupo 2: Ziegler-Nichols e ITAE.
-
-Todos os métodos recebem os parâmetros FOPDT (K, tau, theta)
-e retornam (Kp, Ti, Td).
+Métodos de sintonia PID para Sistemas de Controle.
 """
 
 from dataclasses import dataclass
 from enum import Enum
-import numpy as np
-
 
 class TuningMethod(Enum):
     ZIEGLER_NICHOLS = "Ziegler-Nichols"
     ITAE            = "ITAE"
+    CHR             = "CHR (0% Sobressinal)"
+    CHR_OVERSHOOT   = "CHR (20% Sobressinal)"
+    IMC             = "IMC"
+    CC              = "Cohen-Coon"
     MANUAL          = "Manual"
-
 
 @dataclass
 class PIDParameters:
-    """Parâmetros do controlador PID."""
     Kp: float
-    Ti: float   # Tempo integral (s)
-    Td: float   # Tempo derivativo (s)
+    Ti: float
+    Td: float
     method: str = ""
 
     @property
-    def Ki(self) -> float:
-        """Ganho integral: Ki = Kp / Ti"""
-        return self.Kp / self.Ti if self.Ti > 0 else 0.0
+    def Ki(self) -> float: return self.Kp / self.Ti if self.Ti > 0 else 0.0
 
     @property
-    def Kd(self) -> float:
-        """Ganho derivativo: Kd = Kp * Td"""
-        return self.Kp * self.Td
-
-    def __str__(self):
-        return (
-            f"[{self.method}]  Kp={self.Kp:.4f}  Ti={self.Ti:.4f}s  Td={self.Td:.4f}s  "
-            f"(Ki={self.Ki:.4f}  Kd={self.Kd:.4f})"
-        )
-
+    def Kd(self) -> float: return self.Kp * self.Td
 
 class ZieglerNicholsTuning:
-    """
-    Sintonia PID pelo Método de Ziegler-Nichols (Curva de Reação).
-
-    Aplicável a sistemas FOPDT com resposta em malha aberta.
-
-    Fórmulas para controlador PID:
-        Kp = 1.2 * tau / (K * theta)
-        Ti = 2.0 * theta
-        Td = 0.5 * theta
-
-    Referência:
-        Ziegler & Nichols, ASME Transactions, 1942.
-    """
-
     def tune(self, K: float, tau: float, theta: float) -> PIDParameters:
-        """
-        Calcula os parâmetros PID pelo método de Ziegler-Nichols.
-
-        Parâmetros
-        ----------
-        K     : ganho estático do processo
-        tau   : constante de tempo (s)
-        theta : atraso (dead time) (s)
-        """
-        if theta <= 0:
-            raise ValueError("θ (theta) deve ser maior que zero para Ziegler-Nichols.")
-        if K <= 0 or tau <= 0:
-            raise ValueError("K e τ devem ser positivos.")
-
         Kp = 1.2 * tau / (K * theta)
-        Ti = 2.0 * theta
-        Td = 0.5 * theta
-
-        return PIDParameters(Kp=Kp, Ti=Ti, Td=Td, method="Ziegler-Nichols")
-
+        return PIDParameters(Kp=Kp, Ti=2.0 * theta, Td=0.5 * theta, method="Ziegler-Nichols")
 
 class ITAETuning:
-    """
-    Sintonia PID pelo Critério ITAE (Integral of Time-weighted Absolute Error)
-    para rejeição a perturbações em sistemas FOPDT.
-
-    Fórmulas baseadas na razão de atraso: phi = theta / tau
-
-    Kp = (A/K) * (theta/tau)^B
-    Ti = tau / (C + D * (theta/tau))
-    Td = E * tau * (theta/tau)^F
-
-    Coeficientes para controlador PID (sintonia para set-point):
-        A=0.965, B=-0.855, C=0.796, D=-0.1465, E=0.308, F=0.929
-
-    Referência:
-        Chien & Fruehauf (1990), adaptado por Seborg et al. (2016).
-    """
-
-    # Coeficientes ITAE para PID (rastreamento de set-point)
-    # Fonte: Seborg, Edgar & Mellichamp (2016)
-    _A = 0.965
-    _B = -0.855
-    _C = 0.796
-    _D = -0.1465
-    _E = 0.308
-    _F = 0.929
-
     def tune(self, K: float, tau: float, theta: float) -> PIDParameters:
-        """
-        Calcula os parâmetros PID pelo critério ITAE.
-
-        Parâmetros
-        ----------
-        K     : ganho estático do processo
-        tau   : constante de tempo (s)
-        theta : atraso (dead time) (s)
-        """
-        if theta <= 0 or tau <= 0 or K <= 0:
-            raise ValueError("K, τ e θ devem ser positivos para o método ITAE.")
-
-        phi = theta / tau  # razão de atraso normalizada
-
-        Kp = (self._A / K) * (phi ** self._B)
-        Ti = tau / (self._C + self._D * phi)
-        Td = self._E * tau * (phi ** self._F)
-
-        # Garante valores físicos
-        Ti = max(Ti, 1e-6)
-        Td = max(Td, 0.0)
-
+        phi = theta / tau
+        Kp = (0.965 / K) * (phi ** -0.855)
+        Ti = max(tau / (0.796 - 0.1465 * phi), 1e-6)
+        Td = max(0.308 * tau * (phi ** 0.929), 0.0)
         return PIDParameters(Kp=Kp, Ti=Ti, Td=Td, method="ITAE")
 
+class CHRTuning:
+    def tune(self, K: float, tau: float, theta: float, overshoot: bool = False) -> PIDParameters:
+        if overshoot:
+            return PIDParameters(Kp=(0.95 * tau) / (K * theta), Ti=1.35 * tau, Td=0.47 * theta, method="CHR (20% Sobressinal)")
+        return PIDParameters(Kp=(0.6 * tau) / (K * theta), Ti=1.0 * tau, Td=0.5 * theta, method="CHR (0% Sobressinal)")
+
+class IMCTuning:
+    def tune(self, K: float, tau: float, theta: float, lambda_imc: float) -> PIDParameters:
+        if lambda_imc <= 0: lambda_imc = max(0.1 * tau, 0.8 * theta)
+        Kp = (tau + 0.5 * theta) / (K * (lambda_imc + 0.5 * theta))
+        Ti = tau + 0.5 * theta
+        Td = (tau * theta) / (2 * tau + theta)
+        return PIDParameters(Kp=Kp, Ti=Ti, Td=Td, method=f"IMC (λ={lambda_imc:.2f})")
+
+class CohenCoonTuning:
+    def tune(self, K: float, tau: float, theta: float) -> PIDParameters:
+        phi = theta / tau
+        Kp = (1.35 / K) * ((1 / phi) + 0.185)
+        Ti = theta * ((2.5 + 3.1 * phi) / (1 + 1.03 * phi))
+        Td = (0.37 * theta) / (1 + 0.19 * phi)
+        return PIDParameters(Kp=Kp, Ti=Ti, Td=Td, method="Cohen-Coon")
 
 class PIDTuner:
-    """
-    Fachada (Facade) que centraliza o acesso aos métodos de sintonia.
-    Adicione novos métodos aqui sem alterar o controller.
-    """
-
     def __init__(self):
-        self._zn   = ZieglerNicholsTuning()
+        self._zn = ZieglerNicholsTuning()
         self._itae = ITAETuning()
+        self._chr = CHRTuning()
+        self._imc = IMCTuning()
+        self._cc = CohenCoonTuning()
 
-    def tune(
-        self,
-        method: TuningMethod,
-        K: float,
-        tau: float,
-        theta: float,
-        Kp_manual: float = 1.0,
-        Ti_manual: float = 1.0,
-        Td_manual: float = 0.0,
-    ) -> PIDParameters:
-        """
-        Chama o método de sintonia correspondente e retorna os parâmetros PID.
-        """
-        if method == TuningMethod.ZIEGLER_NICHOLS:
-            return self._zn.tune(K, tau, theta)
-
-        elif method == TuningMethod.ITAE:
-            return self._itae.tune(K, tau, theta)
-
-        elif method == TuningMethod.MANUAL:
-            return PIDParameters(
-                Kp=Kp_manual,
-                Ti=Ti_manual,
-                Td=Td_manual,
-                method="Manual",
-            )
-
-        else:
-            raise ValueError(f"Método desconhecido: {method}")
+    def tune(self, method: TuningMethod, K: float, tau: float, theta: float, 
+             Kp_manual: float = 1.0, Ti_manual: float = 1.0, Td_manual: float = 0.0, lambda_imc: float = 1.0) -> PIDParameters:
+        
+        if method == TuningMethod.ZIEGLER_NICHOLS: return self._zn.tune(K, tau, theta)
+        elif method == TuningMethod.ITAE: return self._itae.tune(K, tau, theta)
+        elif method == TuningMethod.CHR: return self._chr.tune(K, tau, theta, overshoot=False)
+        elif method == TuningMethod.CHR_OVERSHOOT: return self._chr.tune(K, tau, theta, overshoot=True)
+        elif method == TuningMethod.IMC: return self._imc.tune(K, tau, theta, lambda_imc=lambda_imc)
+        elif method == TuningMethod.CC: return self._cc.tune(K, tau, theta)
+        elif method == TuningMethod.MANUAL: return PIDParameters(Kp=Kp_manual, Ti=Ti_manual, Td=Td_manual, method="Manual")
+        raise ValueError(f"Método desconhecido: {method}")
 
     def available_methods(self) -> list:
-        """Retorna os métodos disponíveis para o Grupo 2."""
-        return [TuningMethod.ZIEGLER_NICHOLS, TuningMethod.ITAE, TuningMethod.MANUAL]
+        return list(TuningMethod)

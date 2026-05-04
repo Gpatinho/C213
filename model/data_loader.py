@@ -2,10 +2,8 @@
 model/data_loader.py
 Responsável por carregar e validar arquivos .mat com dados experimentais.
 """
-
 import numpy as np
 import scipy.io as sio
-
 
 class DataLoader:
     """

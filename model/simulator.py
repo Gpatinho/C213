@@ -3,7 +3,6 @@ model/simulator.py
 Simula a resposta do sistema em malha fechada com controlador PID
 e calcula as métricas de desempenho (tr, ts, Mp, ess).
 """
-
 import numpy as np
 import control
 from dataclasses import dataclass
@@ -11,7 +10,6 @@ from typing import Optional
 
 from model.pid_tuning import PIDParameters
 from model.identification import FOPDTModel
-
 
 @dataclass
 class ResponseMetrics:
