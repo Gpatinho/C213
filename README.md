@@ -1,41 +1,169 @@
 # C213 — Identificação de Sistemas e Controle PID
-### Grupo 2 | Disciplina: Sistemas de Controle Automático
+### Grupo 2 | Disciplina: Sistemas de Controle Automático — Inatel 2026
 
-> Aplicação desktop para identificação de modelos FOPDT e projeto de controladores PID com interface gráfica interativa.
-
-## Métodos Implementados
-
-### Identificação de Sistemas
-| Método | Pontos Utilizados | Descrição |
-|--------|-------------------|-----------|
-| **Smith** | 28.3% e 63.2% da resposta | Método clássico para sistemas FOPDT |
-| **Sundaresan** | 35.3% e 85.3% da resposta | Maior precisão para sistemas com atraso |
-
-O sistema calcula o **EQM (Erro Quadrático Médio)** de ambos e indica automaticamente o de melhor ajuste.
-
-### Sintonia PID
-| Método | Característica |
-|--------|---------------|
-| **Ziegler-Nichols** | Resposta rápida, maior sobressinal |
-| **ITAE** | Minimiza erro ponderado no tempo, resposta mais suave |
-| **Manual** | Permite ajuste fino dos parâmetros Kp, Ti e Td |
+> Aplicação desktop para identificação de modelos FOPDT e projeto de controladores PID com interface gráfica interativa, tela de login, geração de relatório PDF e análise por IA.
 
 ---
 
-## Modelo FOPDT
+## Integrantes
 
-O modelo identificado é o **First Order Plus Dead Time**:
+| Nome | GitHub |
+|------|--------|
+| Guilherme Felipe | 
+| Thiago Rodrigues Gregorio | 
+| Clara de Lima azevedo | 
 
+---
+
+## Como Rodar o Projeto — Passo a Passo
+
+### Pré-requisitos
+
+- **Python 3.9 ou superior** — [download aqui](https://www.python.org/downloads/)
+- **Git** — [download aqui](https://git-scm.com/downloads)
+- Conexão com internet (para instalar dependências)
+
+Para verificar se você já tem o Python instalado, abra o terminal e rode:
+```bash
+python --version
 ```
-         K · e^(-θs)
-G(s) = ─────────────
-          τs + 1
+
+---
+
+### 1. Clonar o Repositório
+
+```bash
+git clone https://github.com/Gpatinho/C213.git
+cd C213
 ```
 
-Onde:
-- **K** — Ganho estático do processo
-- **τ** — Constante de tempo (s)
-- **θ** — Atraso (dead time) (s)
+---
+
+### 2. Criar Ambiente Virtual (recomendado)
+
+Evita conflitos com outras versões de bibliotecas instaladas no sistema.
+
+**Windows:**
+```powershell
+python -m venv venv
+venv\Scripts\activate
+```
+
+**Linux / Mac:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+> Quando o ambiente estiver ativo, você verá `(venv)` no início do terminal.
+
+---
+
+### 3. Instalar as Dependências
+
+```bash
+pip install -r requirements.txt
+```
+
+Isso instala automaticamente todas as bibliotecas necessárias:
+
+| Biblioteca | Para que serve |
+|-----------|----------------|
+| `PyQt5` | Interface gráfica |
+| `pyqtgraph` | Gráficos interativos |
+| `numpy` | Cálculos numéricos |
+| `scipy` | Carregamento de arquivos `.mat` |
+| `control` | Simulação de sistemas de controle |
+| `matplotlib` | Plotagem auxiliar |
+| `fpdf2` | Geração de relatório PDF |
+| `google-generativeai` | Análise por IA no relatório (opcional) |
+| `python-dotenv` | Carregamento de variáveis de ambiente |
+
+---
+
+### 4. Configurar o Arquivo `.env`
+
+O projeto usa um arquivo `.env` para as credenciais de login. Crie o arquivo copiando o exemplo:
+
+**Windows:**
+```powershell
+copy .env.example .env
+```
+
+**Linux / Mac:**
+```bash
+cp .env.example .env
+```
+
+O arquivo `.env` já vem com as credenciais padrão prontas para uso:
+```
+APP_USER=admin
+APP_PASS=admin123
+```
+
+> ⚠️ **Nunca commite o arquivo `.env` no GitHub** — ele contém senhas e chaves de API.
+
+#### (Opcional) Habilitar análise por IA no relatório
+
+Se quiser usar o Google Gemini para gerar análises automáticas no relatório PDF, obtenha uma chave em [aistudio.google.com](https://aistudio.google.com/app/apikey) e adicione no `.env`:
+```
+GEMINI_API_KEY=sua_chave_aqui
+```
+Se deixar em branco, o relatório será gerado com análise por regras locais, sem necessidade de internet.
+
+---
+
+### 5. Executar o Projeto
+
+```bash
+python main.py
+```
+
+A aplicação vai abrir com uma **tela de login**. Use as credenciais do arquivo `.env`:
+- **Usuário:** `admin`
+- **Senha:** `admin123`
+
+---
+
+## Como Usar a Aplicação
+
+### Aba 1 — Identificação
+
+1. Clique em **Carregar .mat** e selecione o dataset do seu grupo na pasta `data/`
+2. Clique em **Identificar** — o sistema roda Smith e Sundaresan automaticamente
+3. Compare os resultados: o método com **menor EQM** é destacado automaticamente
+4. Use o menu suspenso **"Usar para sintonia"** para escolher qual modelo usar na sintonia PID
+5. O gráfico superior mostra a **saída y(t)** com as curvas dos dois modelos sobrepostas
+6. O gráfico inferior mostra o **sinal de entrada u(t)**
+7. Clique em **Exportar Gráfico** para salvar a imagem
+
+### Aba 2 — Controle PID
+
+1. Escolha o modo de sintonia:
+   - **Método** → selecione Ziegler-Nichols ou ITAE (parâmetros calculados automaticamente)
+   - **Manual** → insira Kp, Ti e Td manualmente
+2. No modo **Manual**, ao clicar em Sintonizar o sistema **verifica a estabilidade automaticamente** antes de simular. Se o sistema for instável, um aviso aparece com a opção de continuar ou cancelar
+3. Defina o **SetPoint** desejado
+4. Clique em **Sintonizar** para simular um método individualmente
+5. Clique em **Comparar ZN vs ITAE** para ver os dois métodos no mesmo gráfico com métricas lado a lado
+6. Analise as métricas: **tr** (tempo de subida), **ts** (tempo de acomodação), **Mp** (sobressinal) e **ess** (erro em regime permanente)
+7. Clique em **Exportar Gráfico** para salvar
+
+---
+
+## Datasets Disponíveis
+
+| Arquivo | Grupo |
+|---------|-------|
+| `Dataset_Grupo1_c213.mat` | Grupo 1 |
+| `Dataset_Grupo2_c213.mat` | Grupo 2 ← **(seu grupo)** |
+| `Dataset_Grupo3_c213.mat` | Grupo 3 |
+| `Dataset_Grupo4_c213.mat` | Grupo 4 |
+| `Dataset_Grupo5_c213.mat` | Grupo 5 |
+| `Dataset_Grupo6_c213.mat` | Grupo 6 |
+| `Dataset_Grupo7_c213.mat` | Grupo 7 |
+| `Dataset_Grupo8_c213.mat` | Grupo 8 |
+| `Dataset_Grupo9_c213.mat` | Grupo 9 |
 
 ---
 
@@ -44,16 +172,18 @@ Onde:
 ```
 C213/
 │
-├── main.py                     # Ponto de entrada da aplicação
+├── main.py                     # Ponto de entrada (login + janela principal)
 ├── requirements.txt            # Dependências do projeto
+├── .env.example                # Exemplo de configuração (copiar para .env)
 │
 ├── model/                      # Camada Model (MVC)
 │   ├── data_loader.py          # Carregamento de arquivos .mat
 │   ├── identification.py       # Métodos Smith e Sundaresan
-│   ├── pid_tuning.py           # Métodos de sintonia PID
-│   └── simulator.py            # Simulação em malha fechada
+│   ├── pid_tuning.py           # Sintonia PID (ZN, ITAE, Manual)
+│   └── simulator.py            # Simulação em malha fechada + métricas
 │
 ├── view/                       # Camada View (MVC)
+│   ├── login_dialog.py         # Tela de login
 │   ├── main_window.py          # Janela principal com abas
 │   ├── tab_identification.py   # Aba de Identificação
 │   └── tab_pid_control.py      # Aba de Controle PID
@@ -61,80 +191,43 @@ C213/
 ├── controller/                 # Camada Controller (MVC)
 │   └── app_controller.py       # Orquestra Model e View
 │
+├── utils/
+│   └── report_generator.py     # Geração de relatório PDF com IA
+│
 └── data/
-    └── Dataset_Grupo2_c213.mat # Dataset experimental
+    └── Dataset_Grupo*_c213.mat # Datasets experimentais (todos os grupos)
 ```
 
 ---
 
-## Instalação e Execução
+## Métodos Implementados
 
-### Pré-requisitos
+### Identificação — Modelo FOPDT
 
-- Python 3.9 ou superior
-- pip
-
-### Passo a passo
-
-**1. Clone o repositório**
-```bash
-git clone https://github.com/tiagogregorio/C213_Sistemas_Embarcados-.git
-cd C213
+```
+         K · e^(-θs)
+G(s) = ─────────────
+           τs + 1
 ```
 
-**2. (Recomendado) Crie um ambiente virtual**
-```bash
-python -m venv venv
+| Método | Pontos Utilizados | Referência |
+|--------|-------------------|------------|
+| **Smith** | 28.3% e 63.2% da resposta normalizada | Smith (1972) |
+| **Sundaresan** | 35.3% e 85.3% da resposta normalizada | Sundaresan & Krishnaswamy (1978) |
 
-# Windows
-venv\Scripts\activate
+### Sintonia PID — Grupo 2
 
-# Linux / Mac
-source venv/bin/activate
-```
-
-**3. Instale as dependências e configurações de segurança**
-```bash
-pip install -r requirements.txt
-
-Configuração de Variáveis (Segurança)
-Para proteger suas credenciais, configure o arquivo de ambiente:
-Copie o arquivo .env.example para um novo arquivo chamado .env.
-Abra o .env e preencha com suas chaves e dados de acesso.
-Atenção: Nunca compartilhe seu arquivo .env!
-```
-
-**4. Execute a aplicação**
-```bash
-python main.py
-```
-
----
-
-## Como Usar
-
-### Aba Identificação
-
-1. Clique em **Carregar .mat** e selecione o dataset experimental
-2. Clique em **Identificar** — o sistema roda Smith e Sundaresan automaticamente
-3. Compare os resultados e o EQM de cada método na tabela
-4. Selecione o modelo desejado no menu suspenso **"Usar para sintonia"**
-5. Exporte o gráfico com **Exportar Gráfico** se necessário
-
-### Aba Controle PID
-
-1. Escolha o modo **Método** (automático) ou **Manual**
-2. Se automático, selecione **Ziegler-Nichols** ou **ITAE**
-3. Defina o **SetPoint** desejado
-4. Clique em **Sintonizar** para simular a resposta em malha fechada
-5. Analise as métricas: **tr**, **ts**, **Mp** e **ess**
-6. Exporte o gráfico com **Exportar Gráfico**
+| Método | Característica |
+|--------|---------------|
+| **Ziegler-Nichols** | Resposta rápida, maior sobressinal |
+| **ITAE** | Minimiza erro ponderado no tempo, resposta mais suave |
+| **Manual** | Ajuste livre com verificação automática de estabilidade |
 
 ---
 
 ## Resultados — Dataset Grupo 2
 
-### Parâmetros Identificados
+### Identificação
 
 | Parâmetro | Smith | Sundaresan | Valor Real |
 |-----------|-------|------------|------------|
@@ -143,43 +236,47 @@ python main.py
 | θ (s) | 5.80 | 11.47 | 6.0 |
 | **EQM** | **7.788** | **0.047** | — |
 
-> O método de **Sundaresan** apresentou EQM significativamente menor neste dataset.
+### Sintonia PID
 
-### Parâmetros PID — Ziegler-Nichols
+| Métrica | Ziegler-Nichols | ITAE |
+|---------|----------------|------|
+| Kp | 7.2737 | 4.5894 |
+| Ti (s) | 11.6092 | 40.2364 |
+| Td (s) | 2.9023 | 2.0133 |
+| **tr (s)** | **7.1** | **11.8** |
+| **ts (s)** | **34.9** | **47.1** |
+| **Mp (%)** | **58.6** | **0.0** |
+| **ess** | **≈ 0** | **≈ 0** |
 
-| Parâmetro | Valor |
-|-----------|-------|
-| Kp | 7.2737 |
-| Ti (s) | 11.6092 |
-| Td (s) | 2.9023 |
-| **Mp** | **58.6%** |
-| **tr** | **7.1 s** |
-| **ts** | **34.9 s** |
-
-### Parâmetros PID — ITAE
-
-| Parâmetro | Valor |
-|-----------|-------|
-| Kp | 4.5894 |
-| Ti (s) | 40.2364 |
-| Td (s) | 2.0133 |
-| **Mp** | **0.0%** |
-| **tr** | **11.8 s** |
-| **ts** | **47.1 s** |
-
-> O **ITAE** apresenta resposta sem sobressinal, mais adequada para plantas térmicas onde oscilações são indesejadas. O **Ziegler-Nichols** é mais rápido, porém com sobressinal elevado de 58.6%.
+> O **ITAE** elimina o sobressinal ao custo de uma resposta mais lenta — ideal para plantas térmicas onde oscilações são indesejadas.
 
 ---
 
-## Dependências
+## Solução de Problemas
 
+**Erro: `No module named 'fpdf'`**
+```bash
+pip install fpdf2
 ```
-PyQt5>=5.15
-pyqtgraph>=0.13
-numpy>=1.24
-scipy>=1.10
-control>=0.9
-matplotlib>=3.7
+
+**Erro: `No module named 'PyQt5'`**
+```bash
+pip install PyQt5
+```
+
+**Erro: `No module named 'control'`**
+```bash
+pip install control
+```
+
+**Erro: `No module named 'dotenv'`**
+```bash
+pip install python-dotenv
+```
+
+**Arquivo `.env` não encontrado**
+```powershell
+copy .env.example .env
 ```
 
 ---
@@ -196,5 +293,5 @@ matplotlib>=3.7
 
 ## Licença
 
-Projeto acadêmico desenvolvido para a disciplina C213 — Sistemas de Controle Automático.  
+Projeto acadêmico desenvolvido para a disciplina C213 — Sistemas de Controle Automático.
 Instituto Nacional de Telecomunicações — Inatel, 2026.
