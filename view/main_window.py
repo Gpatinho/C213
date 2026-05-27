@@ -139,21 +139,42 @@ class MainWindow(QMainWindow):
 
     def _on_generate_report(self):
         """Slot chamado ao clicar no botão de relatório PDF."""
+        if len(self.controller.historico_simulacoes) == 0:
+            QMessageBox.warning(
+                self, "Atenção",
+                "Simule pelo menos um método PID antes de gerar o relatório."
+            )
+            return
+
         filepath, _ = QFileDialog.getSaveFileName(
             self, "Salvar Relatório PDF", "relatorio_C213.pdf", "PDF (*.pdf)"
         )
         if not filepath:
             return
 
-        # Cria o gerador e exporta
-        gen = ReportGenerator(self.controller)
-        success = gen.generate(filepath)
+        # Pergunta se quer usar IA
+        resposta = QMessageBox.question(
+            self,
+            "Tipo de Relatório",
+            "Deseja gerar o relatório com análise por IA (Google Gemini)?\n\n"
+            "Clique em 'Sim' para usar IA ou 'Não' para análise local.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        usar_ia = resposta == QMessageBox.Yes
 
-        if success:
-            QMessageBox.information(self, "Sucesso", f"Relatório salvo em:\n{filepath}")
-            self.set_status(f"Relatório PDF exportado: {filepath}")
-        else:
-            QMessageBox.critical(self, "Erro", "Falha ao gerar o relatório. Verifique se já existe uma simulação realizada.")
+        try:
+            gen = ReportGenerator(self.controller)
+            success = gen.generate(filepath, use_ai=usar_ia)
+            if success:
+                modo = "com IA" if usar_ia else "sem IA"
+                QMessageBox.information(
+                    self, "Sucesso",
+                    f"Relatório ({modo}) salvo em:\n{filepath}"
+                )
+                self.set_status(f"Relatório PDF exportado: {filepath}")
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Falha ao gerar o relatório:\n{str(e)}")
 
     def unlock_pid_tab(self):
         """Chamado pela aba de identificação após sucesso."""
